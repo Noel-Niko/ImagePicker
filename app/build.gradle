@@ -59,11 +59,21 @@ dependencies {
     androidTestImplementation 'androidx.test.ext:junit:1.1.4'
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.5.0'
 
+    def camerax_version = "1.0.2"
+    implementation "androidx.camera:camera-core:${camerax_version}"
+    implementation "androidx.camera:camera-camera2:1.1.0"
+    implementation "androidx.camera:camera-lifecycle:${camerax_version}"
+    implementation "androidx.camera:camera-view:1.3.0-alpha01"
+
+    implementation "com.google.accompanist:accompanist-permissions:0.19.0"
 
     // Image
     implementation("io.coil-kt:coil-compose:2.2.2")
     // Video
     implementation("io.coil-kt:coil-video:2.2.2")
     debugImplementation 'androidx.compose.ui:ui-tooling:1.3.1'
+
+    // https://mvnrepository.com/artifact/androidx.legacy/legacy-support-v4
+    runtimeOnly("androidx.legacy:legacy-support-v4:1.0.0")
 
 }
