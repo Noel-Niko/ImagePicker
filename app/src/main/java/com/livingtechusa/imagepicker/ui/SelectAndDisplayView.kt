@@ -61,9 +61,7 @@ fun ImagePicker(
         showPhoto = false
     }
 
-    var photoUri by rememberSaveable {
-        mutableStateOf<Uri?>(null)
-    }
+    var photoUri by rememberSaveable { mutableStateOf<Uri?>(null) }
 
     val selectPhoto = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent(),
@@ -77,16 +75,14 @@ fun ImagePicker(
         contract = ActivityResultContracts.TakePicture()
     ) { _ ->
         targetImageUri?.let { uri ->
-            viewModel.onImageCapture(uri)
-            targetImageUri = null
+            //viewModel.onImageCapture(uri)
+            //targetImageUri = null
             photoUri = uri
             showingPhoto()
         }
     }
 
-    var videoUri by rememberSaveable {
-        mutableStateOf<Uri?>(null)
-    }
+    var videoUri by rememberSaveable { mutableStateOf<Uri?>(null) }
 
     val selectVideo = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent(),
@@ -100,7 +96,7 @@ fun ImagePicker(
         contract = ActivityResultContracts.CaptureVideo()
     ) { _ ->
         targetVideoUri?.let { uri ->
-            viewModel.onVideoCapture(uri)
+            //viewModel.onVideoCapture(uri)
             targetVideoUri = null
             videoUri = uri
             showingVideo()
@@ -200,7 +196,6 @@ fun ImagePicker(
                 Button(
                     onClick = {
                         selectVideo.launch("video/*")
-                        showingVideo()
                     },
                 ) {
                     Text(
@@ -219,7 +214,6 @@ fun ImagePicker(
                             viewModel.createVideoUri()?.let { uri ->
                                 targetVideoUri = uri
                                 takeVideo.launch(uri)
-                                showingVideo()
                             }
                         }
                     },

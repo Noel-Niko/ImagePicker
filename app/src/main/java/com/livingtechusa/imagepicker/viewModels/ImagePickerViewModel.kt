@@ -25,54 +25,15 @@ class ImagePickerViewModel(
     private val savedStateHandle: SavedStateHandle
 ) : AndroidViewModel(application) {
 
-    companion object {
-        private val TAG = this::class.java.simpleName
-        const val PHOTO_KEY = "IMAGE"
-        const val VIDEO_KEY = "VIDEO"
-    }
-
-
     private val context: Context
         get() = getApplication()
-
-    val canWriteInMediaStore: Boolean
-        get() = MediaStoreUtils.canWriteInMediaStore(context)
 
     private val _errorFlow = MutableSharedFlow<String>()
     val errorFlow: SharedFlow<String> = _errorFlow
 
-    /**
-     * We keep the current media [Uri] in the savedStateHandle to re-render it if there is a
-     * configuration change and we expose it as a [LiveData] to the UI
-     */
-    val photo: LiveData<FileResource?> =
-        savedStateHandle.getLiveData<FileResource?>(PHOTO_KEY)
-
-    val video: LiveData<FileResource?> =
-        savedStateHandle.getLiveData<FileResource?>(VIDEO_KEY)
-
-    @Composable
-    fun selectImage() {
-        rememberLauncherForActivityResult(
-            contract = ActivityResultContracts.GetContent(),
-            onResult = { uri ->
-                savedStateHandle[PHOTO_KEY] = uri
-            }
-        )
-    }
-
-    @Composable
-    fun selectVideo() = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent(),
-        onResult = { uri ->
-            savedStateHandle[VIDEO_KEY] = uri
-        }
-    )
-
     suspend fun createImageUri(): Uri? {
         val filename = context.getString(R.string.app_name) + "${System.currentTimeMillis()}.jpg"
         val uri = MediaStoreUtils.createImageUri(context, filename)
-
         return if (uri != null) {
             uri
         } else {
@@ -81,17 +42,9 @@ class ImagePickerViewModel(
         }
     }
 
-    fun onImageCapture(uri: Uri) {
-        viewModelScope.launch {
-            MediaStoreUtils.scanUri(context, uri, "image/jpg")
-            savedStateHandle[PHOTO_KEY] = MediaStoreUtils.getResourceByUri(context, uri)
-        }
-    }
-
     suspend fun createVideoUri(): Uri? {
         val filename = context.getString(R.string.app_name) + "${System.currentTimeMillis()}.mp4"
         val uri = MediaStoreUtils.createVideoUri(context, filename)
-
         return if (uri != null) {
             uri
         } else {
@@ -99,12 +52,4 @@ class ImagePickerViewModel(
             null
         }
     }
-
-    fun onVideoCapture(uri: Uri) {
-        viewModelScope.launch {
-            MediaStoreUtils.scanUri(context, uri, "video/mp4")
-            savedStateHandle[VIDEO_KEY] = MediaStoreUtils.getResourceByUri(context, uri)
-        }
-    }
-
 }
