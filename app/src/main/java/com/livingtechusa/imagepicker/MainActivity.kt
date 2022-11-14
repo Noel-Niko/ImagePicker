@@ -23,7 +23,9 @@ import com.livingtechusa.imagepicker.utils.ImageUtil
 
 @OptIn(ExperimentalPermissionsApi::class)
 class MainActivity : ComponentActivity() {
-
+    companion object {
+        val APP_NAME = "ImagePicker"
+    }
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {

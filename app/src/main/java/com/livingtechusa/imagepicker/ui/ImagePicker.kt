@@ -2,7 +2,6 @@ package com.livingtechusa.imagepicker.ui
 
 import android.content.Context
 import android.net.Uri
-import android.os.Environment
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
@@ -14,10 +13,14 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.Button
 import androidx.compose.material.Text
+import androidx.compose.material.rememberScaffoldState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -30,16 +33,27 @@ import coil.compose.rememberAsyncImagePainter
 import coil.decode.VideoFrameDecoder
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.livingtechusa.imagepicker.utils.ComposeFileProvider.Companion.getImageURI
-import com.livingtechusa.imagepicker.utils.ImageUtil
-import com.livingtechusa.imagepicker.utils.ImageUtil.Companion.MEDIA_TYPE_IMAGE
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.livingtechusa.imagepicker.utils.ImageUtil.Companion.MEDIA_TYPE_VIDEO
+import com.livingtechusa.imagepicker.viewModels.ImagePickerViewModel
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalPermissionsApi::class)
 @Composable
 fun ImagePicker(
     modifier: Modifier = Modifier,
-    context: Context
+    context: Context,
+    viewModel: ImagePickerViewModel = viewModel()
 ) {
+    val scaffoldState = rememberScaffoldState()
+    val error by viewModel.errorFlow.collectAsState(null)
+    val capturedMedia by viewModel.capturedMedia.observeAsState()
+    val addedMedia by viewModel.addedMedia.observeAsState()
+
+
+    val scope = rememberCoroutineScope()
+    var targetImageUri by rememberSaveable { mutableStateOf<Uri?>(null) }
+    var targetVideoUri by rememberSaveable { mutableStateOf<Uri?>(null) }
 
     var hasImage by remember {
         mutableStateOf(false)
@@ -49,7 +63,7 @@ fun ImagePicker(
         mutableStateOf<Uri?>(null)
     }
 
-    val imagePicker = rememberLauncherForActivityResult(
+    val selectImage = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent(),
         onResult = { uri ->
             hasImage = uri != null
@@ -57,12 +71,14 @@ fun ImagePicker(
         }
     )
 
-    val cameraImageLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.TakePicture(),
-        onResult = { success ->
-            hasImage = success
+    val takePicture = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicture()) { _ ->
+        targetImageUri?.let { uri ->
+            viewModel.onImageCapture(uri)
+            targetImageUri = null
+            imageUri = uri
         }
-    )
+    }
 
     var hasVideo by remember {
         mutableStateOf(false)
@@ -72,7 +88,7 @@ fun ImagePicker(
         mutableStateOf<Uri?>(null)
     }
 
-    val videoPicker = rememberLauncherForActivityResult(
+    val selectVideo = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent(),
         onResult = { uri ->
             hasVideo = uri != null
@@ -80,14 +96,20 @@ fun ImagePicker(
         }
     )
 
-    val cameraVideoLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.CaptureVideo(),
-        onResult = { success ->
-            hasVideo = success
+    val takeVideo = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CaptureVideo() ) { _ ->
+        targetVideoUri?.let { uri ->
+            viewModel.onVideoCapture(uri)
+            targetVideoUri = null
+            videoUri = uri
         }
-    )
+
+    }
     var visible by rememberSaveable { mutableStateOf(false) }
 
+    Box (
+        mod
+            )
     val imageLoader = ImageLoader.Builder(context)
         .components {
             add(VideoFrameDecoder.Factory())
@@ -131,7 +153,7 @@ fun ImagePicker(
             ) {
                 Button(
                     onClick = {
-                        imagePicker.launch("image/*")
+                        selectImage.launch("image/*")
                     },
                 ) {
                     Text(
@@ -147,11 +169,12 @@ fun ImagePicker(
                 Button(
                     modifier = Modifier.padding(top = 16.dp),
                     onClick = {
-                        // check Environment.getExternalStorageState()
-                        val uri = getImageURI(context = context, MEDIA_TYPE_IMAGE)     // ImageUtil().getOutputMediaFileUri(MEDIA_TYPE_IMAGE)     //ComposeFileProvider.getImageURI(context)
-                        imageUri = uri
-                        cameraImageLauncher.launch(uri)
-                        hasImage = imageUri != null
+                       scope.launch {
+                           viewModel.createImageUri()?.let { uri ->
+                               targetImageUri = uri
+                               takePicture.launch(uri)
+                           }
+                       }
                     },
                 ) {
                     Text(
@@ -166,7 +189,7 @@ fun ImagePicker(
             ) {
                 Button(
                     onClick = {
-                        videoPicker.launch("video/*")
+                        selectVideo.launch("video/*")
                     },
                 ) {
                     Text(
@@ -182,9 +205,12 @@ fun ImagePicker(
                 Button(
                     modifier = Modifier.padding(top = 16.dp),
                     onClick = {
-                        val uri = getImageURI(context = context, MEDIA_TYPE_VIDEO)     //ImageUtil().getOutputMediaFileUri(MEDIA_TYPE_VIDEO)  //ComposeFileProvider.getImageURI(context)
-                        videoUri = uri
-                        cameraVideoLauncher.launch(uri)
+                        scope.launch {
+                            viewModel.createVideoUri()?.let { uri ->
+                                targetVideoUri = uri
+                                takeVideo.launch(uri)
+                            }
+                        }
                     },
                 ) {
                     Text(
