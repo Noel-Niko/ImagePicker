@@ -84,4 +84,6 @@ dependencies {
     // https://mvnrepository.com/artifact/androidx.legacy/legacy-support-v4
     runtimeOnly("androidx.legacy:legacy-support-v4:1.0.0")
 
+
+    implementation 'com.github.skydoves:landscapist-glide:2.1.0'
 }

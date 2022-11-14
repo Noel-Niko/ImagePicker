@@ -15,11 +15,10 @@ import androidx.compose.material.Button
 import androidx.compose.material.Text
 import androidx.compose.material.rememberScaffoldState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -32,9 +31,7 @@ import coil.compose.AsyncImage
 import coil.compose.rememberAsyncImagePainter
 import coil.decode.VideoFrameDecoder
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
-import com.livingtechusa.imagepicker.utils.ComposeFileProvider.Companion.getImageURI
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.livingtechusa.imagepicker.utils.ImageUtil.Companion.MEDIA_TYPE_VIDEO
 import com.livingtechusa.imagepicker.viewModels.ImagePickerViewModel
 import kotlinx.coroutines.launch
 
@@ -47,97 +44,111 @@ fun ImagePicker(
 ) {
     val scaffoldState = rememberScaffoldState()
     val error by viewModel.errorFlow.collectAsState(null)
-    val capturedMedia by viewModel.capturedMedia.observeAsState()
-    val addedMedia by viewModel.addedMedia.observeAsState()
-
-
     val scope = rememberCoroutineScope()
     var targetImageUri by rememberSaveable { mutableStateOf<Uri?>(null) }
     var targetVideoUri by rememberSaveable { mutableStateOf<Uri?>(null) }
 
-    var hasImage by remember {
-        mutableStateOf(false)
+    var showPhoto by rememberSaveable { mutableStateOf(false) }
+    var showVideo by rememberSaveable { mutableStateOf(false) }
+
+    fun showingPhoto() {
+        showVideo = false
+        showPhoto = true
     }
 
-    var imageUri by remember {
+    fun showingVideo() {
+        showVideo = true
+        showPhoto = false
+    }
+
+    var photoUri by rememberSaveable {
         mutableStateOf<Uri?>(null)
     }
 
-    val selectImage = rememberLauncherForActivityResult(
+    val selectPhoto = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent(),
         onResult = { uri ->
-            hasImage = uri != null
-            imageUri = uri
+            photoUri = uri
+            showingPhoto()
         }
     )
 
     val takePicture = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.TakePicture()) { _ ->
+        contract = ActivityResultContracts.TakePicture()
+    ) { _ ->
         targetImageUri?.let { uri ->
             viewModel.onImageCapture(uri)
             targetImageUri = null
-            imageUri = uri
+            photoUri = uri
+            showingPhoto()
         }
     }
 
-    var hasVideo by remember {
-        mutableStateOf(false)
-    }
-
-    var videoUri by remember {
+    var videoUri by rememberSaveable {
         mutableStateOf<Uri?>(null)
     }
 
     val selectVideo = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent(),
         onResult = { uri ->
-            hasVideo = uri != null
             videoUri = uri
+            showingVideo()
         }
     )
 
     val takeVideo = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.CaptureVideo() ) { _ ->
+        contract = ActivityResultContracts.CaptureVideo()
+    ) { _ ->
         targetVideoUri?.let { uri ->
             viewModel.onVideoCapture(uri)
             targetVideoUri = null
             videoUri = uri
+            showingVideo()
         }
 
     }
-    var visible by rememberSaveable { mutableStateOf(false) }
 
-    Box (
-        mod
-            )
     val imageLoader = ImageLoader.Builder(context)
         .components {
             add(VideoFrameDecoder.Factory())
         }.crossfade(true)
         .build()
-    val painter = rememberAsyncImagePainter(
+
+    val videoPainter = rememberAsyncImagePainter(
         model = videoUri,
         imageLoader = imageLoader
     )
 
+    LaunchedEffect(error) {
+        error?.let { scaffoldState.snackbarHostState.showSnackbar(it) }
+    }
+
     Box(
         modifier = modifier.fillMaxSize(),
     ) {
-        if (imageUri != null) {
-            AsyncImage(
-                model = imageUri,
-                modifier = Modifier.fillMaxWidth(),
-                contentDescription = "Selected image",
-            )
+        Row(
+            modifier = Modifier.fillMaxSize()
+        ) {
+            if (photoUri != null && showPhoto) {
+                AsyncImage(
+                    model = photoUri,
+                    modifier = Modifier.fillMaxWidth(),
+                    contentDescription = "Selected image",
+                )
+            }
         }
-        if (videoUri != null) {
-            Image(
-                painter = painter,
-                contentDescription = "Selected Video Thumbnail",
-                contentScale = ContentScale.Crop,
-                alignment = Alignment.Center,
-                modifier = Modifier.fillMaxSize()
-            )
+        Row(
+            modifier = Modifier.fillMaxSize()
+        ) {
+            if (videoUri != null && showVideo) {
+                Image(
+                    painter = videoPainter,
+                    contentDescription = "Selected Video Thumbnail",
+                    contentScale = ContentScale.Crop,
+                    alignment = Alignment.Center,
+                    modifier = Modifier.fillMaxSize()
+                )
+            }
         }
 
         Column(
@@ -153,7 +164,7 @@ fun ImagePicker(
             ) {
                 Button(
                     onClick = {
-                        selectImage.launch("image/*")
+                         selectPhoto.launch("image/*")
                     },
                 ) {
                     Text(
@@ -167,14 +178,13 @@ fun ImagePicker(
                     .padding(start = 32.dp)
             ) {
                 Button(
-                    modifier = Modifier.padding(top = 16.dp),
                     onClick = {
-                       scope.launch {
-                           viewModel.createImageUri()?.let { uri ->
-                               targetImageUri = uri
-                               takePicture.launch(uri)
-                           }
-                       }
+                        scope.launch {
+                            viewModel.createImageUri()?.let { uri ->
+                                targetImageUri = uri
+                                takePicture.launch(uri)
+                            }
+                        }
                     },
                 ) {
                     Text(
@@ -190,6 +200,7 @@ fun ImagePicker(
                 Button(
                     onClick = {
                         selectVideo.launch("video/*")
+                        showingVideo()
                     },
                 ) {
                     Text(
@@ -203,12 +214,12 @@ fun ImagePicker(
                     .padding(start = 32.dp)
             ) {
                 Button(
-                    modifier = Modifier.padding(top = 16.dp),
                     onClick = {
                         scope.launch {
                             viewModel.createVideoUri()?.let { uri ->
                                 targetVideoUri = uri
                                 takeVideo.launch(uri)
+                                showingVideo()
                             }
                         }
                     },
@@ -220,9 +231,10 @@ fun ImagePicker(
             }
         }
     }
-
-
 }
+
+
+
 
 
 

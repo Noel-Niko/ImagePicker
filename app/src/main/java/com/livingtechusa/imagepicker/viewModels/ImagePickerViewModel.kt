@@ -4,11 +4,14 @@ import android.app.Application
 import android.content.Context
 import android.net.Uri
 import android.util.Log
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.runtime.Composable
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
-import com.livingtechusa.imagepicker.MainActivity.Companion.APP_NAME
+import com.livingtechusa.imagepicker.R
 import com.livingtechusa.imagepicker.utils.FileResource
 import com.livingtechusa.imagepicker.utils.MediaStoreUtils
 import com.livingtechusa.imagepicker.utils.MediaStoreUtils.scanUri
@@ -24,9 +27,10 @@ class ImagePickerViewModel(
 
     companion object {
         private val TAG = this::class.java.simpleName
-        const val ADDED_MEDIA_KEY = "addedMedia"
-        const val CAPTURED_MEDIA_KEY = "capturedMedia"
+        const val PHOTO_KEY = "IMAGE"
+        const val VIDEO_KEY = "VIDEO"
     }
+
 
     private val context: Context
         get() = getApplication()
@@ -41,67 +45,32 @@ class ImagePickerViewModel(
      * We keep the current media [Uri] in the savedStateHandle to re-render it if there is a
      * configuration change and we expose it as a [LiveData] to the UI
      */
-    val addedMedia: LiveData<FileResource?> =
-        savedStateHandle.getLiveData<FileResource?>(ADDED_MEDIA_KEY)
+    val photo: LiveData<FileResource?> =
+        savedStateHandle.getLiveData<FileResource?>(PHOTO_KEY)
 
-    /**
-     * We keep the current media [Uri] in the savedStateHandle to re-render it if there is a
-     * configuration change and we expose it as a [LiveData] to the UI
-     */
-    val capturedMedia: LiveData<FileResource?> =
-        savedStateHandle.getLiveData<FileResource?>(CAPTURED_MEDIA_KEY)
+    val video: LiveData<FileResource?> =
+        savedStateHandle.getLiveData<FileResource?>(VIDEO_KEY)
 
-    fun addImage() {
-        viewModelScope.launch {
-            val filename = "added-${System.currentTimeMillis()}.jpg"
-
-            val uri = MediaStoreUtils.createImageUri(context, filename)
-                ?: return@launch _errorFlow.emit("Couldn't create an image Uri\n$filename")
-
-            try {
-                context.contentResolver.openOutputStream(uri, "w")?.use { outputStream ->
-                    context.assets.open("sample.jpg").use { inputStream ->
-                        inputStream.copyTo(outputStream)
-                        scanUri(context, uri, "image/jpg")
-                        savedStateHandle[ADDED_MEDIA_KEY] =
-                            MediaStoreUtils.getResourceByUri(context, uri)
-                    }
-                }
-
-            } catch (e: IOException) {
-                Log.e(TAG, e.printStackTrace().toString())
-                _errorFlow.emit("Couldn't save the image\n$uri")
+    @Composable
+    fun selectImage() {
+        rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.GetContent(),
+            onResult = { uri ->
+                savedStateHandle[PHOTO_KEY] = uri
             }
-        }
+        )
     }
 
-
-    fun addVideo() {
-        viewModelScope.launch {
-            val filename = "added-${System.currentTimeMillis()}.mp4"
-
-            val uri = MediaStoreUtils.createVideoUri(context, filename)
-                ?: return@launch _errorFlow.emit("Couldn't create an video Uri\n$filename")
-
-            try {
-                context.contentResolver.openOutputStream(uri, "w")?.use { outputStream ->
-                    context.assets.open("sample.mp4").use { inputStream ->
-                        inputStream.copyTo(outputStream)
-                        scanUri(context, uri, "video/mp4")
-                        savedStateHandle[ADDED_MEDIA_KEY] =
-                            MediaStoreUtils.getResourceByUri(context, uri)
-                    }
-                }
-
-            } catch (e: IOException) {
-                Log.e(TAG, e.printStackTrace().toString())
-                _errorFlow.emit("Couldn't save the video\n$uri")
-            }
+    @Composable
+    fun selectVideo() = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent(),
+        onResult = { uri ->
+            savedStateHandle[VIDEO_KEY] = uri
         }
-    }
+    )
 
     suspend fun createImageUri(): Uri? {
-        val filename = APP_NAME + "${System.currentTimeMillis()}.jpg"
+        val filename = context.getString(R.string.app_name) + "${System.currentTimeMillis()}.jpg"
         val uri = MediaStoreUtils.createImageUri(context, filename)
 
         return if (uri != null) {
@@ -115,12 +84,12 @@ class ImagePickerViewModel(
     fun onImageCapture(uri: Uri) {
         viewModelScope.launch {
             MediaStoreUtils.scanUri(context, uri, "image/jpg")
-            savedStateHandle[CAPTURED_MEDIA_KEY] = MediaStoreUtils.getResourceByUri(context, uri)
+            savedStateHandle[PHOTO_KEY] = MediaStoreUtils.getResourceByUri(context, uri)
         }
     }
 
     suspend fun createVideoUri(): Uri? {
-        val filename = APP_NAME + "${System.currentTimeMillis()}.mp4"
+        val filename = context.getString(R.string.app_name) + "${System.currentTimeMillis()}.mp4"
         val uri = MediaStoreUtils.createVideoUri(context, filename)
 
         return if (uri != null) {
@@ -134,7 +103,7 @@ class ImagePickerViewModel(
     fun onVideoCapture(uri: Uri) {
         viewModelScope.launch {
             MediaStoreUtils.scanUri(context, uri, "video/mp4")
-            savedStateHandle[CAPTURED_MEDIA_KEY] = MediaStoreUtils.getResourceByUri(context, uri)
+            savedStateHandle[VIDEO_KEY] = MediaStoreUtils.getResourceByUri(context, uri)
         }
     }
 
